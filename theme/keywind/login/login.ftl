@@ -1,87 +1,175 @@
 <#import "template.ftl" as layout>
-<#import "components/atoms/button.ftl" as button>
-<#import "components/atoms/button-group.ftl" as buttonGroup>
-<#import "components/atoms/checkbox.ftl" as checkbox>
-<#import "components/atoms/form.ftl" as form>
-<#import "components/atoms/input.ftl" as input>
-<#import "components/atoms/link.ftl" as link>
-<#import "components/molecules/identity-provider.ftl" as identityProvider>
-<#import "features/labels/username.ftl" as usernameLabel>
+<@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
 
-<#assign usernameLabel><@usernameLabel.kw /></#assign>
+    <#if section = "header">
+        ${msg("loginTitle",(realm.displayName!''))}
 
-<@layout.registrationLayout
-  displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??
-  displayMessage=!messagesPerField.existsError("username", "password")
-  ;
-  section
->
-  <#if section="header">
-    ${msg("loginAccountTitle")}
-  <#elseif section="form">
-    <#if realm.password>
-      <@form.kw
-        action=url.loginAction
-        method="post"
-        onsubmit="login.disabled = true; return true;"
-      >
-        <input
-          name="credentialId"
-          type="hidden"
-          value="<#if auth.selectedCredential?has_content>${auth.selectedCredential}</#if>"
-        >
-        <@input.kw
-          autocomplete=realm.loginWithEmailAllowed?string("email", "username")
-          autofocus=true
-          disabled=usernameEditDisabled??
-          invalid=messagesPerField.existsError("username", "password")
-          label=usernameLabel
-          message=kcSanitize(messagesPerField.getFirstError("username", "password"))
-          name="username"
-          type="text"
-          value=(login.username)!''
-        />
-        <@input.kw
-          invalid=messagesPerField.existsError("username", "password")
-          label=msg("password")
-          name="password"
-          type="password"
-        />
-        <#if realm.rememberMe && !usernameEditDisabled?? || realm.resetPasswordAllowed>
-          <div class="flex items-center justify-between">
-            <#if realm.rememberMe && !usernameEditDisabled??>
-              <@checkbox.kw
-                checked=login.rememberMe??
-                label=msg("rememberMe")
-                name="rememberMe"
-              />
-            </#if>
-            <#if realm.resetPasswordAllowed>
-              <@link.kw color="primary" href=url.loginResetCredentialsUrl size="small">
-                ${msg("doForgotPassword")}
-              </@link.kw>
-            </#if>
-          </div>
+    <#elseif section = "form">
+    <div class="flex flex-col items-stretch p-6 md:p-8 lg:p-16">
+
+        {{-- Logo / Header --}}
+        <div class="flex items-center justify-between">
+            <a href="${properties.kcLogoLink!'#'}">
+                <#if properties.kcLogoUrl??>
+                    <img src="${properties.kcLogoUrl}" alt="${realm.displayName!''}" class="h-8" />
+                <#else>
+                    <span class="text-xl font-bold">${realm.displayName!''}</span>
+                </#if>
+            </a>
+        </div>
+
+        <h3 class="mt-8 text-center text-xl font-semibold md:mt-12 lg:mt-24">
+            ${msg("loginTitle", (realm.displayName!''))}
+        </h3>
+        <p class="text-base-content/70 mt-2 text-center text-sm">
+            ${msg("loginTitleHtml", (realm.displayNameHtml!''))?no_esc}
+        </p>
+
+        {{-- Global error messages --}}
+        <#if messagesPerField.existsError('username','password')>
+            <div class="alert alert-error mt-4 text-sm">
+                <span class="iconify lucide--circle-alert size-4"></span>
+                <span>${kcSanitize(messagesPerField.getFirstError('username','password'))?no_esc}</span>
+            </div>
         </#if>
-        <@buttonGroup.kw>
-          <@button.kw color="primary" name="login" type="submit">
-            ${msg("doLogIn")}
-          </@button.kw>
-        </@buttonGroup.kw>
-      </@form.kw>
+
+        <div class="mt-6 md:mt-10">
+            <form id="kc-form-login" action="${url.loginAction}" method="post">
+
+                {{-- Email / Username --}}
+                <fieldset class="fieldset">
+                    <legend class="fieldset-legend">
+                        <#if !realm.loginWithEmailAllowed>
+                            ${msg("username")}
+                        <#elseif !realm.registrationEmailAsUsername>
+                            ${msg("usernameOrEmail")}
+                        <#else>
+                            ${msg("email")}
+                        </#if>
+                    </legend>
+                    <label class="input w-full focus:outline-0 <#if messagesPerField.existsError('username')>input-error</#if>">
+                        <span class="iconify lucide--mail text-base-content/80 size-5"></span>
+                        <input
+                            class="grow focus:outline-0"
+                            id="username"
+                            name="username"
+                            type="<#if realm.loginWithEmailAllowed && realm.registrationEmailAsUsername>email<#else>text</#if>"
+                            placeholder="<#if !realm.loginWithEmailAllowed>${msg("username")}<#elseif !realm.registrationEmailAsUsername>${msg("usernameOrEmail")}<#else>${msg("email")}</#if>"
+                            value="${(login.username!'')?html}"
+                            autocomplete="<#if realm.loginWithEmailAllowed>email<#else>username</#if>"
+                            <#if usernameHidden??>style="display:none"</#if>
+                        />
+                    </label>
+                </fieldset>
+
+                {{-- Password --}}
+                <fieldset class="fieldset">
+                    <legend class="fieldset-legend">${msg("password")}</legend>
+                    <label class="input w-full focus:outline-0 <#if messagesPerField.existsError('password')>input-error</#if>">
+                        <span class="iconify lucide--key-round text-base-content/80 size-5"></span>
+                        <input
+                            class="grow focus:outline-0"
+                            id="password"
+                            name="password"
+                            type="password"
+                            placeholder="${msg("password")}"
+                            autocomplete="current-password"
+                        />
+                        <button
+                            type="button"
+                            aria-label="${msg("showPassword")}"
+                            class="btn btn-xs btn-ghost btn-circle"
+                            onclick="
+                                var p = document.getElementById('password');
+                                var eyeOn = document.getElementById('eye-on');
+                                var eyeOff = document.getElementById('eye-off');
+                                if (p.type === 'password') {
+                                    p.type = 'text';
+                                    eyeOn.style.display = 'none';
+                                    eyeOff.style.display = 'inline';
+                                } else {
+                                    p.type = 'password';
+                                    eyeOn.style.display = 'inline';
+                                    eyeOff.style.display = 'none';
+                                }
+                            ">
+                            <span id="eye-on" class="iconify lucide--eye size-4"></span>
+                            <span id="eye-off" class="iconify lucide--eye-off size-4" style="display:none"></span>
+                        </button>
+                    </label>
+                </fieldset>
+
+                {{-- Forgot Password --}}
+                <#if realm.resetPasswordAllowed>
+                    <div class="text-end">
+                        <a class="label-text text-base-content/80 text-xs" href="${url.loginResetCredentialsUrl}">
+                            ${msg("doForgotPassword")}
+                        </a>
+                    </div>
+                </#if>
+
+                {{-- Remember Me --}}
+                <#if realm.rememberMe && !usernameHidden??>
+                    <div class="mt-4 flex items-center gap-3 md:mt-6">
+                        <input
+                            class="checkbox checkbox-sm checkbox-primary"
+                            id="rememberMe"
+                            name="rememberMe"
+                            type="checkbox"
+                            <#if login.rememberMe??>checked</#if>
+                        />
+                        <label class="text-sm" for="rememberMe">${msg("rememberMe")}</label>
+                    </div>
+                </#if>
+
+                {{-- Hidden fields --}}
+                <input type="hidden" id="id-hidden-input" name="credentialId"
+                    <#if auth.selectedCredential?has_content>value="${auth.selectedCredential}"</#if> />
+
+                {{-- Submit --}}
+                <button
+                    class="btn btn-primary btn-wide mt-4 max-w-full gap-3 md:mt-6"
+                    id="kc-login"
+                    name="login"
+                    type="submit">
+                    <span class="iconify lucide--log-in size-4"></span>
+                    ${msg("doLogIn")}
+                </button>
+            </form>
+
+            {{-- Social Login (Google etc.) --}}
+            <#if realm.password && social?? && social.providers?has_content>
+                <#list social.providers as p>
+                    <a
+                        class="btn btn-ghost btn-wide border-base-300 mt-4 max-w-full gap-3"
+                        href="${p.loginUrl}"
+                        id="social-${p.alias}">
+                        <#if p.iconClasses?has_content>
+                            <i class="${p.iconClasses!''}" aria-hidden="true"></i>
+                        <#else>
+                            <img
+                                alt="${p.displayName!''}"
+                                class="size-6"
+                                src="${url.resourcesPath}/img/${p.alias}-mini.svg"
+                                onerror="this.style.display='none'"
+                            />
+                        </#if>
+                        ${msg("loginSocialTitle", p.displayName!'')}
+                    </a>
+                </#list>
+            </#if>
+
+            {{-- Register link --}}
+            <#if realm.password && realm.registrationAllowed && !registrationDisabled??>
+                <p class="text-base-content/80 mt-4 text-center text-sm md:mt-6">
+                    ${msg("noAccount")}
+                    <a class="text-primary ms-1 hover:underline" href="${url.registrationUrl}">
+                        ${msg("doRegister")}
+                    </a>
+                </p>
+            </#if>
+        </div>
+    </div>
     </#if>
-  <#elseif section="info">
-    <#if realm.password && realm.registrationAllowed && !registrationDisabled??>
-      <div class="text-center">
-        ${msg("noAccount")}
-        <@link.kw color="primary" href=url.registrationUrl>
-          ${msg("doRegister")}
-        </@link.kw>
-      </div>
-    </#if>
-  <#elseif section="socialProviders">
-    <#if realm.password && social.providers??>
-      <@identityProvider.kw providers=social.providers />
-    </#if>
-  </#if>
+
 </@layout.registrationLayout>
